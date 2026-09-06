@@ -652,7 +652,18 @@
 
       const putRes = await fetch(body.uploadUrl, { method: "PUT", body: file });
       if (!putRes.ok) {
-        uploadStatus.innerHTML = `<div class="upload-row">Upload to storage failed (${putRes.status}).</div>`;
+        uploadStatus.innerHTML = `<div class="upload-row">Upload to storage failed (${putRes.status}). Not added to the pool.</div>`;
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("submissions").insert({
+        user_id: currentUser.id,
+        file_name: file.name,
+        file_key: body.fileKey,
+        file_size: file.size,
+      });
+      if (insertError) {
+        uploadStatus.innerHTML = `<div class="upload-row">Uploaded, but couldn't record it: ${insertError.message}</div>`;
         return;
       }
 
