@@ -100,13 +100,45 @@
   button:disabled { opacity: 0.5; cursor: default; }
 
   /* --- Auth card --- */
+  .auth-wrap {
+    display: flex;
+    justify-content: center;
+    padding-top: 40px;
+  }
+
   .auth-card {
     background: var(--vault-panel);
     border: 1px solid var(--vault-line);
     border-radius: 6px;
     padding: 32px;
+    width: 100%;
     max-width: 380px;
   }
+
+  .auth-tabs {
+    display: flex;
+    border: 1px solid var(--vault-line);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+
+  .auth-tabs button {
+    flex: 1;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--vault-muted);
+    padding: 9px 0;
+  }
+
+  .auth-tabs button.active {
+    background: var(--vault-brass);
+    color: #1c1607;
+    font-weight: 600;
+  }
+
+  .auth-tabs button:hover:not(.active) { border-color: transparent; color: var(--vault-text); }
 
   .auth-card h2 {
     font-family: "Fraunces", serif;
@@ -118,7 +150,7 @@
   .auth-card p.sub {
     color: var(--vault-muted);
     font-size: 13px;
-    margin: 0 0 20px;
+    margin: 0 0 4px;
   }
 
   label {
@@ -292,7 +324,7 @@
     <div class="session-info" id="sessionInfo"></div>
   </header>
 
-  <div id="authView"></div>
+  <div id="authView" class="auth-wrap"></div>
   <div id="appView" style="display:none;">
     <div class="dropzone" id="dropzone" tabindex="0">
       <h3>Drop a file here</h3>
@@ -314,8 +346,8 @@
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
   // ---- Fill these in after you create your Supabase project ----
-const SUPABASE_URL = "https://skgcpautmyrykgjiixfa.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_ALyOd83lYMpAxspDIV8vNA_JbxXHKyO";
+  const SUPABASE_URL = "https://skgcpautmyrykgjiixfa.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_ALyOd83lYMpAxspDIV8vNA_JbxXHKyO";
   // ----------------------------------------------------------------
 
   const BUCKET_NAME = "tempault-files";
@@ -334,25 +366,35 @@ const SUPABASE_ANON_KEY = "sb_publishable_ALyOd83lYMpAxspDIV8vNA_JbxXHKyO";
 
   let currentUser = null;
   let refreshTimer = null;
+  let authMode = "login";
 
   function renderAuth() {
+    const isSignup = authMode === "signup";
     authView.innerHTML = `
       <div class="auth-card">
-        <h2>Log in or sign up</h2>
-        <p class="sub">One step — no verification code, no second factor.</p>
+        <div class="auth-tabs">
+          <button id="tabLogin" class="${!isSignup ? "active" : ""}">Log in</button>
+          <button id="tabSignup" class="${isSignup ? "active" : ""}">Sign up</button>
+        </div>
+        <h2>${isSignup ? "Create an account" : "Welcome back"}</h2>
+        <p class="sub">${isSignup ? "No verification email, no second factor." : "Log in with your email and password."}</p>
         <label for="email">Email</label>
         <input type="email" id="email" placeholder="you@example.com" />
         <label for="password">Password</label>
         <input type="password" id="password" placeholder="At least 6 characters" />
+        ${isSignup ? `
+        <label for="confirmPassword">Confirm password</label>
+        <input type="password" id="confirmPassword" placeholder="Type it again" />
+        ` : ""}
         <div class="auth-actions">
-          <button class="primary" id="loginBtn">Log in</button>
-          <button id="signupBtn">Sign up</button>
+          <button class="primary" id="submitBtn">${isSignup ? "Sign up" : "Log in"}</button>
         </div>
         <div class="auth-msg" id="authMsg"></div>
       </div>
     `;
-    document.getElementById("loginBtn").onclick = () => handleAuth("login");
-    document.getElementById("signupBtn").onclick = () => handleAuth("signup");
+    document.getElementById("tabLogin").onclick = () => { authMode = "login"; renderAuth(); };
+    document.getElementById("tabSignup").onclick = () => { authMode = "signup"; renderAuth(); };
+    document.getElementById("submitBtn").onclick = () => handleAuth(authMode);
   }
 
   async function handleAuth(mode) {
@@ -363,6 +405,13 @@ const SUPABASE_ANON_KEY = "sb_publishable_ALyOd83lYMpAxspDIV8vNA_JbxXHKyO";
     if (!email || !password) {
       msg.textContent = "Enter an email and password.";
       return;
+    }
+    if (mode === "signup") {
+      const confirmPassword = document.getElementById("confirmPassword").value;
+      if (password !== confirmPassword) {
+        msg.textContent = "Passwords don't match.";
+        return;
+      }
     }
     const { error } =
       mode === "login"
@@ -423,7 +472,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_ALyOd83lYMpAxspDIV8vNA_JbxXHKyO";
             </div>
             <div class="file-right">
               <div class="countdown ${cd.soon ? "soon" : ""}">${cd.text}</div>
-              <a class="dl-link" href="${row.public_url}" target="_blank" rel="noopener">Download</a>
+              <a class="dl-link" href="${row.public_url}" target="_blank" rel="noopener">View</a>
+              <a class="dl-link" href="${row.public_url}" download="${escapeHtml(row.file_name)}">Download</a>
               ${mine ? `<button data-id="${row.id}" data-key="${row.file_key}" class="deleteBtn">Delete</button>` : ""}
             </div>
           </div>
@@ -514,7 +564,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_ALyOd83lYMpAxspDIV8vNA_JbxXHKyO";
       clearInterval(refreshTimer);
       refreshTimer = setInterval(loadPool, 60000);
     } else {
-      authView.style.display = "block";
+      authView.style.display = "flex";
       appView.style.display = "none";
       sessionInfo.innerHTML = "";
       renderAuth();
