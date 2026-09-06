@@ -591,23 +591,28 @@
   }
 
   async function getSignedDownloadUrl(fileKey) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const res = await fetch(`${FUNCTIONS_URL}/download-url`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ fileKey }),
-    });
-    const body = await res.json();
-    if (!res.ok) {
-      alert(body.error || "Couldn't get a download link.");
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(`${FUNCTIONS_URL}/download-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ fileKey }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        alert(body.error || "Couldn't get a download link.");
+        return null;
+      }
+      return body.downloadUrl;
+    } catch (err) {
+      alert("Couldn't get a download link: " + (err.message || err));
       return null;
     }
-    return body.downloadUrl;
   }
 
   function escapeHtml(s) {
@@ -626,32 +631,36 @@
       return;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    const res = await fetch(`${FUNCTIONS_URL}/upload-url`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ fileName: file.name, fileSize: file.size }),
-    });
-    const body = await res.json();
-    if (!res.ok) {
-      uploadStatus.innerHTML = `<div class="upload-row">${body.error || "Upload failed"}</div>`;
-      return;
+      const res = await fetch(`${FUNCTIONS_URL}/upload-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ fileName: file.name, fileSize: file.size }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        uploadStatus.innerHTML = `<div class="upload-row">${body.error || "Upload failed"}</div>`;
+        return;
+      }
+
+      const putRes = await fetch(body.uploadUrl, { method: "PUT", body: file });
+      if (!putRes.ok) {
+        uploadStatus.innerHTML = `<div class="upload-row">Upload to storage failed (${putRes.status}).</div>`;
+        return;
+      }
+
+      uploadStatus.innerHTML = "";
+      loadPool();
+    } catch (err) {
+      uploadStatus.innerHTML = `<div class="upload-row">Upload failed: ${err.message || err}</div>`;
     }
-
-    const putRes = await fetch(body.uploadUrl, { method: "PUT", body: file });
-    if (!putRes.ok) {
-      uploadStatus.innerHTML = `<div class="upload-row">Upload to storage failed.</div>`;
-      return;
-    }
-
-    uploadStatus.innerHTML = "";
-    loadPool();
   }
 
   dropzone.addEventListener("click", () => fileInput.click());
