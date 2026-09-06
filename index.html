@@ -18,6 +18,11 @@
     --vault-danger: #d9714e;
   }
 
+  html {
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+
   * { box-sizing: border-box; }
 
   body {
@@ -311,6 +316,61 @@
     color: var(--vault-muted);
     margin-top: 10px;
   }
+
+  .storage-meter {
+    font-size: 12px;
+    color: var(--vault-muted);
+    margin-top: 6px;
+  }
+
+  .storage-track {
+    width: 140px;
+    height: 4px;
+    background: var(--vault-line);
+    border-radius: 2px;
+    overflow: hidden;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .storage-fill {
+    height: 100%;
+    background: var(--vault-brass);
+  }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 28px 16px 72px; }
+
+    header.top {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .session-info { text-align: left; }
+
+    .wordmark { font-size: 24px; }
+
+    .auth-card { padding: 24px 20px; }
+
+    .dropzone { padding: 26px 18px; }
+
+    .file-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .file-right {
+      width: 100%;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .countdown { text-align: left; min-width: 0; }
+  }
 </style>
 </head>
 <body>
@@ -337,6 +397,7 @@
       <h3>Shared pool</h3>
       <span id="poolCount"></span>
     </div>
+    <div class="storage-meter" id="storageMeter"></div>
     <div id="poolList"></div>
   </div>
 
@@ -352,6 +413,7 @@
 
   const BUCKET_NAME = "tempault-files";
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — Supabase free tier's per-file cap
+  const TOTAL_STORAGE_LIMIT = 1024 * 1024 * 1024; // 1GB — Supabase free tier's total project storage
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -360,6 +422,7 @@
   const sessionInfo = document.getElementById("sessionInfo");
   const poolList = document.getElementById("poolList");
   const poolCount = document.getElementById("poolCount");
+  const storageMeter = document.getElementById("storageMeter");
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
   const uploadStatus = document.getElementById("uploadStatus");
@@ -427,7 +490,8 @@
   function fmtBytes(n) {
     if (n < 1024) return `${n} B`;
     if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / 1024 ** 2).toFixed(1)} MB`;
+    if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
+    return `${(n / 1024 ** 3).toFixed(2)} GB`;
   }
 
   function fmtCountdown(expiresAt) {
@@ -454,6 +518,13 @@
     }
 
     poolCount.textContent = `${data.length} file${data.length === 1 ? "" : "s"} live`;
+
+    const totalUsed = data.reduce((sum, row) => sum + row.file_size, 0);
+    const pct = Math.min(100, (totalUsed / TOTAL_STORAGE_LIMIT) * 100);
+    storageMeter.innerHTML = `
+      <span class="storage-track"><span class="storage-fill" style="width:${pct}%"></span></span>
+      ${fmtBytes(totalUsed)} of 1GB shared storage used
+    `;
 
     if (data.length === 0) {
       poolList.innerHTML = `<div class="empty-state">Nothing here yet — the first upload starts the clock.</div>`;
