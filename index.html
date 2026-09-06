@@ -18,6 +18,11 @@
     --vault-danger: #d9714e;
   }
 
+  html {
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+
   * { box-sizing: border-box; }
 
   body {
@@ -100,13 +105,45 @@
   button:disabled { opacity: 0.5; cursor: default; }
 
   /* --- Auth card --- */
+  .auth-wrap {
+    display: flex;
+    justify-content: center;
+    padding-top: 40px;
+  }
+
   .auth-card {
     background: var(--vault-panel);
     border: 1px solid var(--vault-line);
     border-radius: 6px;
     padding: 32px;
+    width: 100%;
     max-width: 380px;
   }
+
+  .auth-tabs {
+    display: flex;
+    border: 1px solid var(--vault-line);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+
+  .auth-tabs button {
+    flex: 1;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--vault-muted);
+    padding: 9px 0;
+  }
+
+  .auth-tabs button.active {
+    background: var(--vault-brass);
+    color: #1c1607;
+    font-weight: 600;
+  }
+
+  .auth-tabs button:hover:not(.active) { border-color: transparent; color: var(--vault-text); }
 
   .auth-card h2 {
     font-family: "Fraunces", serif;
@@ -118,7 +155,7 @@
   .auth-card p.sub {
     color: var(--vault-muted);
     font-size: 13px;
-    margin: 0 0 20px;
+    margin: 0 0 4px;
   }
 
   label {
@@ -279,6 +316,62 @@
     color: var(--vault-muted);
     margin-top: 10px;
   }
+
+  .storage-meter {
+    font-size: 12px;
+    color: var(--vault-muted);
+    margin-top: 6px;
+    margin-bottom: 20px;
+  }
+
+  .storage-track {
+    width: 140px;
+    height: 4px;
+    background: var(--vault-line);
+    border-radius: 2px;
+    overflow: hidden;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .storage-fill {
+    height: 100%;
+    background: var(--vault-brass);
+  }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 28px 16px 72px; }
+
+    header.top {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .session-info { text-align: left; }
+
+    .wordmark { font-size: 24px; }
+
+    .auth-card { padding: 24px 20px; }
+
+    .dropzone { padding: 26px 18px; }
+
+    .file-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .file-right {
+      width: 100%;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .countdown { text-align: left; min-width: 0; }
+  }
 </style>
 </head>
 <body>
@@ -292,11 +385,11 @@
     <div class="session-info" id="sessionInfo"></div>
   </header>
 
-  <div id="authView"></div>
+  <div id="authView" class="auth-wrap"></div>
   <div id="appView" style="display:none;">
     <div class="dropzone" id="dropzone" tabindex="0">
       <h3>Drop a file here</h3>
-      <p>or click to choose — up to 100MB, cleared automatically after 3 days</p>
+      <p>or click to choose — up to 200MB, cleared automatically after 3 days</p>
       <input type="file" id="fileInput" />
     </div>
     <div id="uploadStatus"></div>
@@ -305,6 +398,7 @@
       <h3>Shared pool</h3>
       <span id="poolCount"></span>
     </div>
+    <div class="storage-meter" id="storageMeter"></div>
     <div id="poolList"></div>
   </div>
 
@@ -319,6 +413,9 @@
   const FUNCTIONS_URL = "https://skgcpautmyrykgjiixfa.functions.supabase.co";
   // ----------------------------------------------------------------
 
+  const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB per file
+  const STORAGE_GUARD = 9.5 * 1024 * 1024 * 1024; // matches the edge function's guard
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const authView = document.getElementById("authView");
@@ -326,31 +423,42 @@
   const sessionInfo = document.getElementById("sessionInfo");
   const poolList = document.getElementById("poolList");
   const poolCount = document.getElementById("poolCount");
+  const storageMeter = document.getElementById("storageMeter");
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
   const uploadStatus = document.getElementById("uploadStatus");
 
   let currentUser = null;
   let refreshTimer = null;
+  let authMode = "login";
 
   function renderAuth() {
+    const isSignup = authMode === "signup";
     authView.innerHTML = `
       <div class="auth-card">
-        <h2>Log in or sign up</h2>
-        <p class="sub">One step — no verification code, no second factor.</p>
+        <div class="auth-tabs">
+          <button id="tabLogin" class="${!isSignup ? "active" : ""}">Log in</button>
+          <button id="tabSignup" class="${isSignup ? "active" : ""}">Sign up</button>
+        </div>
+        <h2>${isSignup ? "Create an account" : "Welcome back"}</h2>
+        <p class="sub">${isSignup ? "No verification email, no second factor." : "Log in with your email and password."}</p>
         <label for="email">Email</label>
         <input type="email" id="email" placeholder="you@example.com" />
         <label for="password">Password</label>
         <input type="password" id="password" placeholder="At least 6 characters" />
+        ${isSignup ? `
+        <label for="confirmPassword">Confirm password</label>
+        <input type="password" id="confirmPassword" placeholder="Type it again" />
+        ` : ""}
         <div class="auth-actions">
-          <button class="primary" id="loginBtn">Log in</button>
-          <button id="signupBtn">Sign up</button>
+          <button class="primary" id="submitBtn">${isSignup ? "Sign up" : "Log in"}</button>
         </div>
         <div class="auth-msg" id="authMsg"></div>
       </div>
     `;
-    document.getElementById("loginBtn").onclick = () => handleAuth("login");
-    document.getElementById("signupBtn").onclick = () => handleAuth("signup");
+    document.getElementById("tabLogin").onclick = () => { authMode = "login"; renderAuth(); };
+    document.getElementById("tabSignup").onclick = () => { authMode = "signup"; renderAuth(); };
+    document.getElementById("submitBtn").onclick = () => handleAuth(authMode);
   }
 
   async function handleAuth(mode) {
@@ -361,6 +469,13 @@
     if (!email || !password) {
       msg.textContent = "Enter an email and password.";
       return;
+    }
+    if (mode === "signup") {
+      const confirmPassword = document.getElementById("confirmPassword").value;
+      if (password !== confirmPassword) {
+        msg.textContent = "Passwords don't match.";
+        return;
+      }
     }
     const { error } =
       mode === "login"
@@ -376,7 +491,8 @@
   function fmtBytes(n) {
     if (n < 1024) return `${n} B`;
     if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / 1024 ** 2).toFixed(1)} MB`;
+    if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
+    return `${(n / 1024 ** 3).toFixed(2)} GB`;
   }
 
   function fmtCountdown(expiresAt) {
@@ -404,6 +520,13 @@
 
     poolCount.textContent = `${data.length} file${data.length === 1 ? "" : "s"} live`;
 
+    const totalUsed = data.reduce((sum, row) => sum + row.file_size, 0);
+    const pct = Math.min(100, (totalUsed / STORAGE_GUARD) * 100);
+    storageMeter.innerHTML = `
+      <span class="storage-track"><span class="storage-fill" style="width:${pct}%"></span></span>
+      ${fmtBytes(totalUsed)} of 9.5GB used (shared across everyone, not per person)
+    `;
+
     if (data.length === 0) {
       poolList.innerHTML = `<div class="empty-state">Nothing here yet — the first upload starts the clock.</div>`;
       return;
@@ -421,7 +544,8 @@
             </div>
             <div class="file-right">
               <div class="countdown ${cd.soon ? "soon" : ""}">${cd.text}</div>
-              <a class="dl-link" href="${row.public_url}" target="_blank" rel="noopener">Download</a>
+              <a class="dl-link" data-key="${row.file_key}" data-action="view" href="#">View</a>
+              <a class="dl-link" data-key="${row.file_key}" data-name="${escapeHtml(row.file_name)}" data-action="download" href="#">Download</a>
               ${mine ? `<button data-id="${row.id}" class="deleteBtn">Delete</button>` : ""}
             </div>
           </div>
@@ -429,23 +553,76 @@
       })
       .join("");
 
+    poolList.querySelectorAll(".dl-link").forEach((link) => {
+      link.onclick = async (e) => {
+        e.preventDefault();
+        const key = link.dataset.key;
+        const url = await getSignedDownloadUrl(key);
+        if (!url) return;
+        if (link.dataset.action === "download") {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = link.dataset.name || "";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } else {
+          window.open(url, "_blank", "noopener");
+        }
+      };
+    });
+
     poolList.querySelectorAll(".deleteBtn").forEach((btn) => {
       btn.onclick = async () => {
-        await supabase.from("submissions").delete().eq("id", btn.dataset.id);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        await fetch(`${FUNCTIONS_URL}/delete-file`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ submissionId: btn.dataset.id }),
+        });
         loadPool();
       };
     });
+  }
+
+  async function getSignedDownloadUrl(fileKey) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const res = await fetch(`${FUNCTIONS_URL}/download-url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ fileKey }),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      alert(body.error || "Couldn't get a download link.");
+      return null;
+    }
+    return body.downloadUrl;
   }
 
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  async function uploadFile(file) {
-    uploadStatus.innerHTML = `<div class="upload-row"><span>Uploading ${escapeHtml(file.name)}…</span><span>0%</span></div>`;
+  function sanitize(name) {
+    return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  }
 
-    if (file.size > 100 * 1024 * 1024) {
-      uploadStatus.innerHTML = `<div class="upload-row">Too big — 100MB max.</div>`;
+  async function uploadFile(file) {
+    uploadStatus.innerHTML = `<div class="upload-row"><span>Uploading ${escapeHtml(file.name)}…</span></div>`;
+
+    if (file.size > MAX_FILE_SIZE) {
+      uploadStatus.innerHTML = `<div class="upload-row">Too big — 200MB max.</div>`;
       return;
     }
 
@@ -504,7 +681,7 @@
       clearInterval(refreshTimer);
       refreshTimer = setInterval(loadPool, 60000);
     } else {
-      authView.style.display = "block";
+      authView.style.display = "flex";
       appView.style.display = "none";
       sessionInfo.innerHTML = "";
       renderAuth();
