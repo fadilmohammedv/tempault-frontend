@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tempault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --vault-bg: #14171c;
+    --vault-panel: #1c2027;
+    --vault-line: #2c313a;
+    --vault-text: #e7e5df;
+    --vault-muted: #8b909b;
+    --vault-brass: #d1a35c;
+    --vault-brass-dim: #8a6f3f;
+    --vault-danger: #d9714e;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--vault-bg);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(209,163,92,0.06), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    color: var(--vault-text);
+    font-family: "IBM Plex Sans", sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  header.top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--vault-line);
+    padding-bottom: 20px;
+    margin-bottom: 36px;
+    gap: 16px;
+  }
+
+  .wordmark {
+    font-family: "Fraunces", serif;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--vault-text);
+  }
+
+  .wordmark span { color: var(--vault-brass); }
+
+  .tagline {
+    color: var(--vault-muted);
+    font-size: 14px;
+    margin-top: 4px;
+    max-width: 40ch;
+  }
+
+  .session-info {
+    text-align: right;
+    font-size: 13px;
+    color: var(--vault-muted);
+  }
+
+  .session-info button {
+    margin-top: 6px;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 3px;
+    border: 1px solid var(--vault-line);
+    background: transparent;
+    color: var(--vault-text);
+    padding: 9px 16px;
+    cursor: pointer;
+  }
+
+  button:hover { border-color: var(--vault-brass-dim); }
+
+  button.primary {
+    background: var(--vault-brass);
+    border-color: var(--vault-brass);
+    color: #1c1607;
+    font-weight: 600;
+  }
+
+  button.primary:hover { background: #dcb576; }
+
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  /* --- Auth card --- */
+  .auth-card {
+    background: var(--vault-panel);
+    border: 1px solid var(--vault-line);
+    border-radius: 6px;
+    padding: 32px;
+    max-width: 380px;
+  }
+
+  .auth-card h2 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: 20px;
+    margin: 0 0 6px;
+  }
+
+  .auth-card p.sub {
+    color: var(--vault-muted);
+    font-size: 13px;
+    margin: 0 0 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--vault-muted);
+    margin-bottom: 5px;
+    margin-top: 14px;
+  }
+
+  input[type="email"], input[type="password"] {
+    width: 100%;
+    background: #101317;
+    border: 1px solid var(--vault-line);
+    border-radius: 3px;
+    padding: 10px 12px;
+    color: var(--vault-text);
+    font-family: inherit;
+    font-size: 14px;
+  }
+
+  input:focus, button:focus, .dropzone:focus-within {
+    outline: 2px solid var(--vault-brass-dim);
+    outline-offset: 1px;
+  }
+
+  .auth-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .auth-msg {
+    font-size: 13px;
+    margin-top: 14px;
+    color: var(--vault-danger);
+  }
+
+  /* --- Dropzone --- */
+  .dropzone {
+    border: 1px dashed var(--vault-line);
+    border-radius: 6px;
+    padding: 36px 24px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s ease;
+  }
+
+  .dropzone.drag { border-color: var(--vault-brass); }
+
+  .dropzone h3 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: 17px;
+    margin: 0 0 4px;
+  }
+
+  .dropzone p {
+    color: var(--vault-muted);
+    font-size: 13px;
+    margin: 0;
+  }
+
+  .dropzone input { display: none; }
+
+  .upload-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--vault-line);
+    color: var(--vault-muted);
+  }
+
+  /* --- Pool list --- */
+  .pool-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 40px 0 14px;
+  }
+
+  .pool-heading h3 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .pool-heading span {
+    color: var(--vault-muted);
+    font-size: 13px;
+  }
+
+  .file-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+    background: var(--vault-panel);
+    border: 1px solid var(--vault-line);
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+
+  .file-main { min-width: 0; }
+
+  .file-name {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-meta {
+    font-size: 12px;
+    color: var(--vault-muted);
+    margin-top: 3px;
+  }
+
+  .file-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .countdown {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--vault-brass);
+    text-align: right;
+    min-width: 92px;
+  }
+
+  .countdown.soon { color: var(--vault-danger); }
+
+  .empty-state {
+    color: var(--vault-muted);
+    font-size: 14px;
+    padding: 30px 0;
+    border-top: 1px solid var(--vault-line);
+  }
+
+  a.dl-link {
+    color: var(--vault-brass);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  a.dl-link:hover { text-decoration: underline; }
+
+  .hint {
+    font-size: 12px;
+    color: var(--vault-muted);
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="wordmark">temp<span>ault</span></div>
+      <div class="tagline">A shared drop for files that only need to exist for a few days.</div>
+    </div>
+    <div class="session-info" id="sessionInfo"></div>
+  </header>
+
+  <div id="authView"></div>
+  <div id="appView" style="display:none;">
+    <div class="dropzone" id="dropzone" tabindex="0">
+      <h3>Drop a file here</h3>
+      <p>or click to choose — up to 50MB, cleared automatically after 3 days</p>
+      <input type="file" id="fileInput" />
+    </div>
+    <div id="uploadStatus"></div>
+
+    <div class="pool-heading">
+      <h3>Shared pool</h3>
+      <span id="poolCount"></span>
+    </div>
+    <div id="poolList"></div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  // ---- Fill these in after you create your Supabase project ----
+  const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+  const SUPABASE_ANON_KEY = "YOUR-ANON-KEY";
+  // ----------------------------------------------------------------
+
+  const BUCKET_NAME = "tempault-files";
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — Supabase free tier's per-file cap
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const authView = document.getElementById("authView");
+  const appView = document.getElementById("appView");
+  const sessionInfo = document.getElementById("sessionInfo");
+  const poolList = document.getElementById("poolList");
+  const poolCount = document.getElementById("poolCount");
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const uploadStatus = document.getElementById("uploadStatus");
+
+  let currentUser = null;
+  let refreshTimer = null;
+
+  function renderAuth() {
+    authView.innerHTML = `
+      <div class="auth-card">
+        <h2>Log in or sign up</h2>
+        <p class="sub">One step — no verification code, no second factor.</p>
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" />
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="At least 6 characters" />
+        <div class="auth-actions">
+          <button class="primary" id="loginBtn">Log in</button>
+          <button id="signupBtn">Sign up</button>
+        </div>
+        <div class="auth-msg" id="authMsg"></div>
+      </div>
+    `;
+    document.getElementById("loginBtn").onclick = () => handleAuth("login");
+    document.getElementById("signupBtn").onclick = () => handleAuth("signup");
+  }
+
+  async function handleAuth(mode) {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const msg = document.getElementById("authMsg");
+    msg.textContent = "";
+    if (!email || !password) {
+      msg.textContent = "Enter an email and password.";
+      return;
+    }
+    const { error } =
+      mode === "login"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+    if (error) msg.textContent = error.message;
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+  }
+
+  function fmtBytes(n) {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 ** 2).toFixed(1)} MB`;
+  }
+
+  function fmtCountdown(expiresAt) {
+    const ms = new Date(expiresAt).getTime() - Date.now();
+    if (ms <= 0) return { text: "expired", soon: true };
+    const h = Math.floor(ms / 3.6e6);
+    const d = Math.floor(h / 24);
+    const remH = h % 24;
+    const m = Math.floor((ms % 3.6e6) / 60000);
+    const soon = h < 6;
+    const text = d > 0 ? `${d}d ${remH}h left` : `${h}h ${m}m left`;
+    return { text, soon };
+  }
+
+  async function loadPool() {
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("*")
+      .order("uploaded_at", { ascending: false });
+
+    if (error) {
+      poolList.innerHTML = `<div class="empty-state">Couldn't load the pool: ${error.message}</div>`;
+      return;
+    }
+
+    poolCount.textContent = `${data.length} file${data.length === 1 ? "" : "s"} live`;
+
+    if (data.length === 0) {
+      poolList.innerHTML = `<div class="empty-state">Nothing here yet — the first upload starts the clock.</div>`;
+      return;
+    }
+
+    poolList.innerHTML = data
+      .map((row) => {
+        const cd = fmtCountdown(row.expires_at);
+        const mine = row.user_id === currentUser?.id;
+        return `
+          <div class="file-card">
+            <div class="file-main">
+              <div class="file-name">${escapeHtml(row.file_name)}</div>
+              <div class="file-meta">${fmtBytes(row.file_size)}${mine ? " · uploaded by you" : ""}</div>
+            </div>
+            <div class="file-right">
+              <div class="countdown ${cd.soon ? "soon" : ""}">${cd.text}</div>
+              <a class="dl-link" href="${row.public_url}" target="_blank" rel="noopener">Download</a>
+              ${mine ? `<button data-id="${row.id}" data-key="${row.file_key}" class="deleteBtn">Delete</button>` : ""}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    poolList.querySelectorAll(".deleteBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        const key = btn.dataset.key;
+        await supabase.storage.from(BUCKET_NAME).remove([key]);
+        await supabase.from("submissions").delete().eq("id", btn.dataset.id);
+        loadPool();
+      };
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function sanitize(name) {
+    return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  }
+
+  async function uploadFile(file) {
+    uploadStatus.innerHTML = `<div class="upload-row"><span>Uploading ${escapeHtml(file.name)}…</span></div>`;
+
+    if (file.size > MAX_FILE_SIZE) {
+      uploadStatus.innerHTML = `<div class="upload-row">Too big — 50MB max.</div>`;
+      return;
+    }
+
+    const filePath = `${currentUser.id}/${crypto.randomUUID()}-${sanitize(file.name)}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(filePath, file);
+
+    if (uploadError) {
+      uploadStatus.innerHTML = `<div class="upload-row">${uploadError.message}</div>`;
+      return;
+    }
+
+    const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+
+    const { error: insertError } = await supabase.from("submissions").insert({
+      user_id: currentUser.id,
+      file_name: file.name,
+      file_key: filePath,
+      file_size: file.size,
+      public_url: publicData.publicUrl,
+    });
+
+    if (insertError) {
+      uploadStatus.innerHTML = `<div class="upload-row">${insertError.message}</div>`;
+      return;
+    }
+
+    uploadStatus.innerHTML = "";
+    loadPool();
+  }
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("drag");
+    if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+  });
+
+  async function render() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    currentUser = session?.user ?? null;
+
+    if (currentUser) {
+      authView.style.display = "none";
+      appView.style.display = "block";
+      sessionInfo.innerHTML = `${escapeHtml(currentUser.email)}<br/><button id="logoutBtn">Log out</button>`;
+      document.getElementById("logoutBtn").onclick = logout;
+      loadPool();
+      clearInterval(refreshTimer);
+      refreshTimer = setInterval(loadPool, 60000);
+    } else {
+      authView.style.display = "block";
+      appView.style.display = "none";
+      sessionInfo.innerHTML = "";
+      renderAuth();
+      clearInterval(refreshTimer);
+    }
+  }
+
+  supabase.auth.onAuthStateChange(() => render());
+  render();
+</script>
+</body>
+</html>
